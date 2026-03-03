@@ -1,0 +1,11 @@
+[project]
+name = "monday-bi-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "google-adk",
+    "node>=2.0.0",
+    "opentelemetry-instrumentation-google-genai",
+]
