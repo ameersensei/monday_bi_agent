@@ -1,4 +1,4 @@
-from google.adk.agents import Agent, SequentialAgent
+from google.adk.agents import Agent, SequentialAgent, LlmAgent
 from google.adk.tools import FunctionTool, ToolContext, AgentTool
 from google.adk.tools.mcp_tool.mcp_toolset import McpToolset
 from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams,StreamableHTTPConnectionParams
@@ -48,13 +48,15 @@ monday_mcp_server = McpToolset(
         )
     )
 
+
 query_agent = Agent(
-    model = Gemini(model = 'gemini-2.5-flash-lite', retry_options = retry_config),
+    model = Gemini(model = 'gemini-2.5-flash', retry_options = retry_config),
     name = 'query_agent',
     description = 'an agent which get basic required details from user for getting work done.',
     instruction = '''when user ask question related to monday workspace or boards then ask for required details
     1.always clarify what user is asking if needed ask some more details
     2. store the workspace id and board id in the output key 'workspace_id' and 'board_id'.
+    3. use monday_mcp_server tool to get the available workspaces and boards.
     example:
     user : hi can you get me details of sakura.
     Available Workspaces and Boards:
@@ -93,6 +95,7 @@ extract_agent = Agent(
     . Action: Call the clean_and_normalize_data tool.
     . Observe: Look at the cleaned data.
     . Thought: Formulate business intelligence insights (e.g., revenue, pipeline health, sector performance).
+    . Action: clean the data of any missing values or inconsistent data dont add any data but show user the data as is is but say not specified. show whatever data avaialbel for inconsistent data.
     . Final Answer: Provide a concise, founder-level summary with your insights and explicitly state any caveats about missing or inconsistent data.
 
     ''',
@@ -100,9 +103,19 @@ extract_agent = Agent(
     output_key = 'extract_agent',
 )
 
-root_agent = SequentialAgent(
+root_agent = LlmAgent(
+    model = Gemini(model = 'gemini-2.5-flash', retry_options = retry_config),
     name = 'root_agent',
-    sub_agents = [query_agent,extract_agent],
+    description = 'personal assistant which takes user query and perform task using the monday tools.',
+    instruction = '''always answer in simple and short form dont use unnecessary details and long explanation
+    1.use query_agent and extract_agent to get the workspace id and board id.
+    2.based on the selected workspace id and board id then use available tools and their output keys to answer the query.
+    3. if user ask out of scope question other than monday workspace related then answer politely to ask for question related
+    to monday workspace.
+    ''',
+    tools = [AgentTool(agent = query_agent), AgentTool(agent = extract_agent)],
+    output_key = 'root_agent',
+
 )
 
 monday_app = App(
